@@ -1,30 +1,29 @@
 #include <Arduino.h>
-#include "Wire.h"
+#include <Wire.h>
 #include <SPI.h>
 #include <FastAccelStepper.h>
-
-//#include "TMC6100_Register.h"
-//#include "TMC6100_Fields.h"
-//#include "TMC6100_Constants.h"
 
 #include "TMC4671_Register.h"
 #include "TMC4671_Fields.h"
 #include "TMC4671_Constants.h"
 #include "TMC4671_Variants.h"
 
-#define PIN_TMC_ENN     4
+#define PIN_TMC_ENN     26
 #define PIN_SPI_SCK     18
 #define PIN_SPI_MISO    19
-#define PIN_SPI_MOSI    23
-#define PIN_SPI_CS_TMC  17
-#define PIN_SPI_CS_MAG  20
+#define PIN_SPI_MOSI    22
+#define PIN_SPI_CS_TMC  21
+#define PIN_SPI_CS_MAG  5
+
+#define STEP_PIN  15
+#define DIR_PIN  14
+
+#define A_pin 32
+#define B_pin 33
+#define Z_pin 23
 
 FastAccelStepperEngine engine = FastAccelStepperEngine();
 FastAccelStepper *stepper = NULL;
-
-static const int spi_clk = 100000; // 100kHz
-
-SPIClass* spi = NULL;
 
 int16_t  tgt_torque   = 0;
 int16_t  tgt_flux     = 0;
@@ -41,9 +40,8 @@ bool torque_active    = false;
 int current_position = 0;
 int accel = 10000;
 int max_speed = 30000;
-int move_to_step = 600000;
+int move_to_step = 6000000;
 int step_width = 1;
-  
 
 void spi_write(uint8_t reg, uint32_t value) {
   Serial.println("[CPU -> CTRL] " + String(reg, HEX) + ": 0x" + String(value));
@@ -85,11 +83,16 @@ void setup() {
 
   initHardware(p_torque, i_torque, p_flux, i_flux, p_velocity, i_velocity);
 
-  //stepper->setCurrentPosition(current_position);
-  //stepper->setAcceleration(accel);
-  //stepper->setSpeedInHz(max_speed);
+  engine.init();
+  stepper = engine.stepperConnectToPin(STEP_PIN);
+  stepper->setDirectionPin(DIR_PIN);
+  stepper->setEnablePin(PIN_TMC_ENN);
+  stepper->setAutoEnable(true);
 
-  //stepper->moveTo(move_to_step);
+  stepper->setCurrentPosition(current_position);
+  stepper->setAcceleration(accel);
+  stepper->setSpeedInHz(max_speed);
+  stepper->moveTo(move_to_step);
   
 }
 
@@ -271,6 +274,7 @@ void checkSerial() {
 
 void loop() {
   //checkSerial();
-  //int TMC_INPUTS_RAW = digitalRead(TMC4671_INPUTS_RAW);
-  //Serial.println(TMC_INPUTS_RAW);
+  int TMC_INPUTS_RAW = spi_read(TMC4671_INPUTS_RAW);
+  Serial.println(TMC_INPUTS_RAW);
+  delay(1000);
 }
