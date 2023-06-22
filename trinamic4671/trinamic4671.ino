@@ -2,6 +2,9 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <FastAccelStepper.h>
+#include "SimpleFOC.h"
+#include "SimpleFOCDrivers.h"
+#include "encoders/mt6835/MagneticSensorMT6835.h"
 
 #include "TMC4671_Register.h"
 #include "TMC4671_Fields.h"
@@ -21,6 +24,8 @@
 #define A_pin 32
 #define B_pin 33
 #define Z_pin 23
+
+MagneticSensorMT6835 sensor = MagneticSensorMT6835(nCS);
 
 FastAccelStepperEngine engine = FastAccelStepperEngine();
 FastAccelStepper *stepper = NULL;
@@ -73,13 +78,14 @@ uint32_t spi_read(uint8_t reg) {
 void setup() {
   Serial.begin(115200);
   SPI.begin(PIN_SPI_SCK, PIN_SPI_MOSI, PIN_SPI_MISO, PIN_SPI_CS_MAG);
+  //sensor.init();
   digitalWrite(PIN_TMC_ENN, LOW);
   pinMode(PIN_TMC_ENN, OUTPUT);
-
-  digitalWrite(PIN_SPI_CS_TMC, HIGH);
-  digitalWrite(PIN_SPI_CS_MAG, HIGH);
   pinMode(PIN_SPI_CS_TMC, OUTPUT);
   pinMode(PIN_SPI_CS_MAG, OUTPUT);
+  digitalWrite(PIN_SPI_CS_TMC, HIGH);
+  digitalWrite(PIN_SPI_CS_MAG, HIGH);
+
 
   initHardware(p_torque, i_torque, p_flux, i_flux, p_velocity, i_velocity);
 
@@ -125,8 +131,18 @@ void setTorquePi(uint16_t p, uint16_t i) {
   spi_write(TMC4671_PID_TORQUE_P_TORQUE_I, (p << 16) | i);
 }
 
+//We are bit shifting using the fileds shift macros
 void setFluxPi(uint16_t p, uint16_t i) {
-  spi_write(TMC4671_PID_FLUX_P_FLUX_I, (p << 16) | i);
+  spi_write(TMC4671_PID_FLUX_P_FLUX_I, (p << TMC4671_PID_FLUX_P_SHIFT) | i << TMC4671_PID_FLUX_I_SHIFT);
+}
+
+
+void setFluxP(uint16_t p){
+spi_write(TMC4671_PID_FLUX_P_FLUX_I, p << TMC4671_PID_FLUX_P_SHIFT);
+}
+
+void setFluxI(uint16_t i){
+spi_write(TMC4671_PID_FLUX_P_FLUX_I, i << TMC4671_PID_FLUX_I_SHIFT);
 }
 
 void initHardware(uint16_t torqueP, uint16_t torqueI, uint16_t fluxP, uint16_t fluxI, uint16_t velocityP, uint16_t velocityI) {
@@ -274,7 +290,7 @@ void checkSerial() {
 
 void loop() {
   //checkSerial();
-  int TMC_INPUTS_RAW = spi_read(TMC4671_INPUTS_RAW);
+  int TMC_INPUTS_RAW = spi_read(TMC4671_MOTOR_TYPE_N_POLE_PAIRS);
   Serial.println(TMC_INPUTS_RAW);
   delay(1000);
 }
